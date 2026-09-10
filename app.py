@@ -1,9 +1,9 @@
+
 import streamlit as st
 from google import genai
-from google.genai import types
 import urllib.parse
-from gtts import gTTS
-import io
+import edge_tts
+import asyncio
 
 st.set_page_config(page_title="Apna Guru Ji", page_icon="🪔", layout="centered")
 
@@ -18,6 +18,17 @@ except Exception:
     st.error("कृपया Streamlit Secrets में 'GEMINI_API_KEY' सेट करें।")
     st.stop()
 
+# Async Function for Rishi/Guru Voice
+async def generate_guru_audio(text, output_file="guru_voice.mp3"):
+    voice = "hi-IN-MadhurNeural"
+    communicate = edge_tts.Communicate(text, voice, rate="-10%", pitch="-5Hz")
+    await communicate.save(output_file)
+
+def get_audio(text):
+    asyncio.run(generate_guru_audio(text))
+    with open("guru_voice.mp3", "rb") as audio_file:
+        return audio_file.read()
+
 # Session State for Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -25,7 +36,7 @@ if "messages" not in st.session_state:
 # Sidebar
 with st.sidebar:
     st.header("🪔 अपना गुरु जी")
-    st.write("भारतीय दर्शन और आधुनिक मनोविज्ञान के माध्यम से जीवन की समस्याओं का समाधान।")
+    st.write("शांत, गंभीर और प्रामाणिक दार्शनिक वाणी।")
     if st.button("नई बातचीत शुरू करें (Clear Chat)"):
         st.session_state.messages = []
         st.rerun()
@@ -34,20 +45,20 @@ with st.sidebar:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        if "image_url" in message:
-            st.image(message["image_url"], use_container_width=True)
         if "audio_bytes" in message:
             st.audio(message["audio_bytes"], format="audio/mp3")
+        if "image_url" in message:
+            st.image(message["image_url"], use_container_width=True)
 
 # Prompt Definition
 system_instruction = (
-    "आप 'अपना गुरु जी' हैं—एक आत्मीय, ज्ञानी और धैर्यवान मार्गदर्शक। "
-    "यूज़र को जीवन की दुविधाओं, तनाव और मानसिक उलझनों में सही रास्ता दिखाएँ।\n\n"
+    "आप 'अपना गुरु जी' हैं—एक प्रबुद्ध, शांत, गंभीर और स्नेही ऋषि-तुल्य आचार्य। "
+    "यूज़र को जीवन की दुविधाओं, तनाव और उलझनों में सही रास्ता दिखाएँ।\n\n"
     "नियम:\n"
-    "1. उत्तर में भारतीय दर्शन (गीता, उपनिषद) और आधुनिक मनोविज्ञान (Cognitive Science) का व्यावहारिक संतुलन रखें।\n"
-    "2. भाषा सरल, सम्मानजनक, स्नेहपूर्ण और प्रेरणादायक हिंदी रखें।\n"
+    "1. उत्तर में भारतीय दर्शन (गीता, उपनिषद) और आधुनिक मनोविज्ञान का व्यावहारिक संतुलन रखें।\n"
+    "2. भाषा बहुत सरल, सम्मानजनक, शांत और प्रेरणादायक हिंदी रखें।\n"
     "3. उत्तर के अंत में 1 छोटी अंग्रेजी लाइन जोड़ें जो इस उत्तर का दृश्य (Visual Prompt) बताए, "
-    "फॉर्मेट: [IMAGE_PROMPT: serene Indian meditation art with golden glowing light, high quality]"
+    "फॉर्मेट: [IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas, cinematic lighting, ultra realistic]"
 )
 
 # Function to Process Query
@@ -63,7 +74,6 @@ def process_query(prompt_text):
             )
             raw_text = response.text
             
-            # 1. Extract Image Prompt & URL
             image_url = None
             if "[IMAGE_PROMPT:" in raw_text:
                 parts = raw_text.split("[IMAGE_PROMPT:")
@@ -75,22 +85,25 @@ def process_query(prompt_text):
                 reply_text = raw_text.strip()
 
             st.markdown(reply_text)
+            
+            # Audio Generation
+            audio_bytes = get_audio(reply_text)
+            st.audio(audio_bytes, format="audio/mp3")
 
             if image_url:
                 st.image(image_url, use_container_width=True)
-
-            # 2. Text-to-Speech (Hindi Audio)
-            tts = gTTS(text=reply_text, lang='hi', slow=False)
-            audio_fp = io.BytesIO()
-            tts.write_to_fp(audio_fp)
-            audio_fp.seek(0)
-            audio_bytes = audio_fp.read()
-            st.audio(audio_bytes, format="audio/mp3")
-
-            msg_data = {"role": "assistant", "content": reply_text, "audio_bytes": audio_bytes}
-            if image_url:
-                msg_data["image_url"] = image_url
-            st.session_state.messages.append(msg_data)
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": reply_text, 
+                    "audio_bytes": audio_bytes,
+                    "image_url": image_url
+                })
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": reply_text, 
+                    "audio_bytes": audio_bytes
+                })
 
         except Exception as e:
             st.error(f"त्रुटि: {e}")
@@ -108,27 +121,7 @@ with col3:
     if st.button("⚖️ कर्म का मर्म"):
         process_query("कर्म और उसके फल को सही तरह कैसे समझें?")
 
-# Voice Input (Mic)
-st.write("---")
-mic_audio = st.audio_input("🎙️ बोलकर पूछें (माइक पर टैप करके रिकॉर्ड करें)")
-if mic_audio:
-    audio_data = mic_audio.read()
-    with st.spinner("आपकी आवाज़ समझी जा रही है..."):
-        try:
-            transcription_resp = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=[
-                    "इस ऑडियो में कही गई बात को ठीक-ठीक हिंदी टेक्स्ट में लिखें। केवल वही टेक्स्ट लौटाएँ, कोई अतिरिक्त टिप्पणी नहीं।",
-                    types.Part.from_bytes(data=audio_data, mime_type="audio/wav")
-                ]
-            )
-            spoken_text = transcription_resp.text.strip()
-            if spoken_text:
-                process_query(spoken_text)
-        except Exception as e:
-            st.error(f"ऑडियो समझने में त्रुटि: {e}")
-
-# Text Input
-user_query = st.chat_input("गुरु जी से अपनी दुविधा लिखकर साझा करें...")
+# Chat Input
+user_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
 if user_query:
     process_query(user_query)
