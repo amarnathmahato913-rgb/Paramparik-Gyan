@@ -1,32 +1,52 @@
 import streamlit as st
 from google import genai
 import urllib.parse
-import edge_tts
-import asyncio
+import requests
 
 st.set_page_config(page_title="Apna Guru Ji", page_icon="🪔", layout="centered")
 
 st.title("🪔 अपना गुरु जी (Apna Guru Ji)")
 st.caption("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल")
 
-# API Key Setup
+# API Keys Setup
 try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    client = genai.Client(api_key=api_key)
+    gemini_key = st.secrets["GEMINI_API_KEY"]
+    client = genai.Client(api_key=gemini_key)
 except Exception:
     st.error("कृपया Streamlit Secrets में 'GEMINI_API_KEY' सेट करें।")
     st.stop()
 
-# Async Function for Rishi/Guru Voice
-async def generate_guru_audio(text, output_file="guru_voice.mp3"):
-    voice = "hi-IN-MadhurNeural"
-    communicate = edge_tts.Communicate(text, voice, rate="-10%", pitch="-5Hz")
-    await communicate.save(output_file)
+# Function to generate ElevenLabs Brian Voice
+def get_brian_voice(text):
+    if "ELEVENLABS_API_KEY" not in st.secrets:
+        return None
+    
+    voice_id = "nPczCjzI2devNBz1zQrb"  # Brian Voice ID
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
-def get_audio(text):
-    asyncio.run(generate_guru_audio(text))
-    with open("guru_voice.mp3", "rb") as audio_file:
-        return audio_file.read()
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": st.secrets["ELEVENLABS_API_KEY"],
+    }
+
+    payload = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.85
+        }
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        if response.status_code == 200:
+            return response.content
+        else:
+            return None
+    except Exception:
+        return None
 
 # Session State for Chat History
 if "messages" not in st.session_state:
@@ -47,7 +67,8 @@ system_instruction = (
     "नियम:\n"
     "1. उत्तर में भारतीय दर्शन (गीता, उपनिषद) और आधुनिक मनोविज्ञान का व्यावहारिक संतुलन रखें।\n"
     "2. भाषा बहुत सरल, सम्मानजनक, शांत और प्रेरणादायक हिंदी रखें।\n"
-    "3. उत्तर के अंत में 1 छोटी अंग्रेजी लाइन जोड़ें जो इस उत्तर का दृश्य (Visual Prompt) बताए, "
+    "3. उत्तर बहुत लंबा न रखें ताकि आवाज़ में सुनने में आसानी हो।\n"
+    "4. उत्तर के अंत में 1 छोटी अंग्रेजी लाइन जोड़ें जो इस उत्तर का दृश्य (Visual Prompt) बताए, "
     "फॉर्मेट: [IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas, cinematic lighting, ultra realistic]"
 )
 
@@ -84,9 +105,10 @@ def process_query(prompt_text):
                 # Display Text
                 st.markdown(reply_text)
 
-                # Generate and Display Audio
-                audio_bytes = get_audio(reply_text)
-                st.audio(audio_bytes, format="audio/mp3")
+                # Generate and Display Brian Audio
+                audio_bytes = get_brian_voice(reply_text)
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
 
                 # Display Image
                 if image_url:
@@ -106,9 +128,9 @@ def process_query(prompt_text):
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        if "audio_bytes" in message and message["audio_bytes"]:
+        if message.get("audio_bytes"):
             st.audio(message["audio_bytes"], format="audio/mp3")
-        if "image_url" in message and message["image_url"]:
+        if message.get("image_url"):
             st.image(message["image_url"], use_container_width=True)
 
 # Quick Prompt Buttons
