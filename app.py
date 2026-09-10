@@ -1,4 +1,3 @@
-
 import streamlit as st
 from google import genai
 import urllib.parse
@@ -41,15 +40,6 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# Display Chat History
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if "audio_bytes" in message:
-            st.audio(message["audio_bytes"], format="audio/mp3")
-        if "image_url" in message:
-            st.image(message["image_url"], use_container_width=True)
-
 # Prompt Definition
 system_instruction = (
     "आप 'अपना गुरु जी' हैं—एक प्रबुद्ध, शांत, गंभीर और स्नेही ऋषि-तुल्य आचार्य। "
@@ -63,50 +53,63 @@ system_instruction = (
 
 # Function to Process Query
 def process_query(prompt_text):
+    if not prompt_text:
+        return
+
     st.session_state.messages.append({"role": "user", "content": prompt_text})
-    st.chat_message("user").markdown(prompt_text)
+
+    with st.chat_message("user"):
+        st.markdown(prompt_text)
 
     with st.chat_message("assistant"):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=f"{system_instruction}\n\nशिष्य का प्रश्न: {prompt_text}"
-            )
-            raw_text = response.text
-            
-            image_url = None
-            if "[IMAGE_PROMPT:" in raw_text:
-                parts = raw_text.split("[IMAGE_PROMPT:")
-                reply_text = parts[0].strip()
-                img_desc = parts[1].replace("]", "").strip()
-                encoded_desc = urllib.parse.quote(img_desc)
-                image_url = f"https://image.pollinations.ai/prompt/{encoded_desc}?width=800&height=450&nologo=true"
-            else:
-                reply_text = raw_text.strip()
+        with st.spinner("गुरु जी चिंतन कर रहे हैं..."):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=f"{system_instruction}\n\nशिष्य का प्रश्न: {prompt_text}"
+                )
+                raw_text = response.text
+                
+                # Image Prompt Extraction
+                image_url = None
+                if "[IMAGE_PROMPT:" in raw_text:
+                    parts = raw_text.split("[IMAGE_PROMPT:")
+                    reply_text = parts[0].strip()
+                    img_desc = parts[1].replace("]", "").strip()
+                    encoded_desc = urllib.parse.quote(img_desc)
+                    image_url = f"https://image.pollinations.ai/prompt/{encoded_desc}?width=800&height=450&nologo=true"
+                else:
+                    reply_text = raw_text.strip()
 
-            st.markdown(reply_text)
-            
-            # Audio Generation
-            audio_bytes = get_audio(reply_text)
-            st.audio(audio_bytes, format="audio/mp3")
+                # Display Text
+                st.markdown(reply_text)
 
-            if image_url:
-                st.image(image_url, use_container_width=True)
+                # Generate and Display Audio
+                audio_bytes = get_audio(reply_text)
+                st.audio(audio_bytes, format="audio/mp3")
+
+                # Display Image
+                if image_url:
+                    st.image(image_url, use_container_width=True)
+
                 st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": reply_text, 
+                    "role": "assistant",
+                    "content": reply_text,
                     "audio_bytes": audio_bytes,
                     "image_url": image_url
                 })
-            else:
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": reply_text, 
-                    "audio_bytes": audio_bytes
-                })
 
-        except Exception as e:
-            st.error(f"त्रुटि: {e}")
+            except Exception as e:
+                st.error(f"त्रुटि: {e}")
+
+# Display Past Chat History
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        if "audio_bytes" in message and message["audio_bytes"]:
+            st.audio(message["audio_bytes"], format="audio/mp3")
+        if "image_url" in message and message["image_url"]:
+            st.image(message["image_url"], use_container_width=True)
 
 # Quick Prompt Buttons
 st.write("*त्वरित प्रश्न चुनें:*")
@@ -121,7 +124,34 @@ with col3:
     if st.button("⚖️ कर्म का मर्म"):
         process_query("कर्म और उसके फल को सही तरह कैसे समझें?")
 
-# Chat Input
-user_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
-if user_query:
-    process_query(user_query)
+# Bottom Unified Search & Mic Bar
+st.write("---")
+input_col1, input_col2 = st.columns([4, 1])
+
+with input_col1:
+    user_typed_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
+
+with input_col2:
+    audio_mic = st.audio_input("🎙️ Mic", label_visibility="collapsed")
+
+# Handle Text Input
+if user_typed_query:
+    process_query(user_typed_query)
+
+# Handle Voice Input
+if audio_mic is not None:
+    try:
+        audio_bytes = audio_mic.read()
+        audio_part = {
+            "mime_type": "audio/wav",
+            "data": audio_bytes
+        }
+        transcription_response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=[audio_part, "इस ऑडियो में जो बोला गया है उसे हूबहू टेक्स्ट में लिखकर दें। केवल टेक्स्ट लिखें, अतिरिक्त कुछ नहीं।"]
+        )
+        voice_query = transcription_response.text.strip()
+        if voice_query:
+            process_query(voice_query)
+    except Exception as e:
+        st.error(f"माइक से आवाज़ समझने में समस्या: {e}")
