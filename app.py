@@ -1,9 +1,9 @@
 import streamlit as st
 from google import genai
 
-st.set_page_config(page_title="Paramparik Gyan", page_icon="🕉️", layout="centered")
+st.set_page_config(page_title="Paramparik Gyan", page_icon="☀️", layout="centered")
 
-st.title("🕉️ पारंपरिक ज्ञान (Paramparik Gyan)")
+st.title("☀️ पारंपरिक ज्ञान (Paramparik Gyan)")
 st.caption("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल")
 
 # API Key Streamlit Secrets se aayegi
@@ -43,7 +43,7 @@ if user_query:
     with st.chat_message("assistant"):
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.6-flash",
                 contents=f"{system_instruction}\n\nयूज़र का प्रश्न: {user_query}"
             )
             reply = response.text
