@@ -15,7 +15,6 @@ st.caption("उपनिषदों का विवेक, गीता का
 def clean_ascii_key(raw_val):
     if not raw_val:
         return ""
-    # Remove smart quotes, extra spaces, and any non-ascii characters
     val_str = str(raw_val).strip().strip("'\"“”‘’")
     return re.sub(r'[^\x00-\x7F]+', '', val_str)
 
@@ -27,7 +26,7 @@ except Exception as e:
     st.error(f"Gemini API सेटअप त्रुटि: {e}")
     st.stop()
 
-# Safe ElevenLabs Brian Voice Generator
+# ElevenLabs Brian Voice Generator
 def get_brian_voice(text):
     raw_key = st.secrets.get("ELEVENLABS_API_KEY", None)
     if not raw_key:
@@ -43,8 +42,7 @@ def get_brian_voice(text):
         "xi-api-key": clean_key,
     }
 
-    # Shorten text to prevent timeouts
-    clean_text = text[:500] if len(text) > 500 else text
+    clean_text = text.replace("*", "").replace("#", "")[:500]
 
     payload = {
         "text": clean_text,
@@ -56,7 +54,6 @@ def get_brian_voice(text):
     }
 
     try:
-        # Strictly encode JSON body as pure UTF-8 bytes
         req_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         response = requests.post(url, data=req_body, headers=headers, timeout=20)
         if response.status_code == 200:
@@ -65,28 +62,28 @@ def get_brian_voice(text):
     except Exception:
         return None
 
-# Session State for Chat History
+# Session State for History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Sidebar
 with st.sidebar:
     st.header("🪔 अपना गुरु जी")
-    st.write("शांत, गंभीर और प्रामाणिक दार्शनिक वाणी।")
+    st.write("शांत, गंभीर और प्रामाणिक दार्शनिक वाणी (Brian Voice)।")
     if st.button("नई बातचीत शुरू करें (Clear Chat)"):
         st.session_state.messages = []
         st.rerun()
 
-# System Prompt
+# System Instruction
 system_instruction = (
     "You are 'Apna Guru Ji', an authentic Vedic sage and life coach. "
-    "Provide guidance using wisdom from Bhagavad Gita and modern psychology. "
+    "Provide guidance using wisdom from Bhagavad Gita, Upanishads, and modern psychology. "
     "Reply in calm, respectful, and soothing Hindi. "
     "Keep replies concise (2 short paragraphs). "
     "At the end, add: [IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas, cinematic lighting]"
 )
 
-# Function to Process Query
+# Process Query
 def process_query(prompt_text):
     if not prompt_text:
         return
@@ -98,14 +95,14 @@ def process_query(prompt_text):
     with st.chat_message("assistant"):
         with st.spinner("गुरु जी चिंतन कर रहे हैं..."):
             try:
-                # 1. Generate text from Gemini
+                # 1. Text Generation using gemini-3.6-flash
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=[system_instruction, f"Question: {prompt_text}"]
                 )
                 raw_text = response.text or ""
 
-                # 2. Extract visual prompt
+                # 2. Visual Prompt Extraction
                 image_url = None
                 if "[IMAGE_PROMPT:" in raw_text:
                     parts = raw_text.split("[IMAGE_PROMPT:")
@@ -116,15 +113,14 @@ def process_query(prompt_text):
                 else:
                     reply_text = raw_text.strip()
 
-                # Display Text
                 st.markdown(reply_text)
 
-                # 3. Audio generation
+                # 3. Brian Voice Generation
                 audio_bytes = get_brian_voice(reply_text)
                 if audio_bytes:
                     st.audio(audio_bytes, format="audio/mp3")
 
-                # 4. Display Image
+                # 4. Image Display
                 if image_url:
                     st.image(image_url, use_container_width=True)
 
@@ -138,7 +134,7 @@ def process_query(prompt_text):
             except Exception as e:
                 st.error(f"त्रुटि: {e}")
 
-# Display Past History
+# Render History
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -160,12 +156,11 @@ with col3:
     if st.button("⚖️ कर्म का मर्म"):
         process_query("कर्म और उसके फल का सही मर्म क्या है?")
 
-# Chat Text Input
+# Inputs
 user_typed_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
 if user_typed_query:
     process_query(user_typed_query)
 
-# Mic Audio Input
 audio_mic = st.audio_input("🎙️ बोलकर पूछें (Mic)")
 if audio_mic is not None:
     try:
@@ -175,7 +170,7 @@ if audio_mic is not None:
             mime_type="audio/wav"
         )
         transcription_response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=[audio_part, "Transcribe this spoken audio into text. Return ONLY the transcribed text."]
         )
         voice_query = transcription_response.text.strip() if transcription_response.text else ""
