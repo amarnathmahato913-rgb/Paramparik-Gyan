@@ -4,51 +4,61 @@ from google.genai import types
 import urllib.parse
 import requests
 import json
+import re
 
 st.set_page_config(page_title="Apna Guru Ji", page_icon="🪔", layout="centered")
 
 st.title("🪔 अपना गुरु जी (Apna Guru Ji)")
 st.caption("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल")
 
+# Safe Key Cleaning Function
+def clean_ascii_key(raw_val):
+    if not raw_val:
+        return ""
+    # Remove smart quotes, extra spaces, and any non-ascii characters
+    val_str = str(raw_val).strip().strip("'\"“”‘’")
+    return re.sub(r'[^\x00-\x7F]+', '', val_str)
+
 # API Keys Setup
 try:
-    gemini_key = str(st.secrets["GEMINI_API_KEY"]).strip().replace('"', '').replace("'", "")
+    gemini_key = clean_ascii_key(st.secrets.get("GEMINI_API_KEY", ""))
     client = genai.Client(api_key=gemini_key)
-except Exception:
-    st.error("कृपया Streamlit Secrets में 'GEMINI_API_KEY' सेट करें।")
+except Exception as e:
+    st.error(f"Gemini API सेटअप त्रुटि: {e}")
     st.stop()
 
 # Safe ElevenLabs Brian Voice Generator
 def get_brian_voice(text):
-    if "ELEVENLABS_API_KEY" not in st.secrets:
+    raw_key = st.secrets.get("ELEVENLABS_API_KEY", None)
+    if not raw_key:
         return None
+    
+    clean_key = clean_ascii_key(raw_key)
+    voice_id = "nPczCjzI2devNBz1zQrb"  # Brian Voice ID
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": clean_key,
+    }
+
+    # Shorten text to prevent timeouts
+    clean_text = text[:500] if len(text) > 500 else text
+
+    payload = {
+        "text": clean_text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.85
+        }
+    }
+
     try:
-        clean_key = str(st.secrets["ELEVENLABS_API_KEY"]).strip().encode("ascii", "ignore").decode("ascii")
-        voice_id = "nPczCjzI2devNBz1zQrb"  # Brian Voice ID
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json; charset=utf-8",
-            "xi-api-key": clean_key,
-        }
-
-        # Truncate text slightly if too long for TTS stability
-        clean_text = text[:800] if len(text) > 800 else text
-
-        payload = {
-            "text": clean_text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.85
-            }
-        }
-
-        # Strict UTF-8 serialization
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        response = requests.post(url, data=body, headers=headers, timeout=25)
-        
+        # Strictly encode JSON body as pure UTF-8 bytes
+        req_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        response = requests.post(url, data=req_body, headers=headers, timeout=20)
         if response.status_code == 200:
             return response.content
         return None
@@ -67,14 +77,13 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# Prompt Definition
+# System Prompt
 system_instruction = (
-    "You are 'Apna Guru Ji', an authentic, compassionate Vedic sage and psychological mentor. "
-    "Guide the seeker with wisdom from Bhagavad Gita, Upanishads, and practical modern psychology. "
-    "Always reply in respectful, pure, and soothing Hindi. "
-    "Keep answers concise (2-3 short paragraphs). "
-    "At the very end, append one line specifying an image prompt: "
-    "[IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas, cinematic lighting, ultra realistic]"
+    "You are 'Apna Guru Ji', an authentic Vedic sage and life coach. "
+    "Provide guidance using wisdom from Bhagavad Gita and modern psychology. "
+    "Reply in calm, respectful, and soothing Hindi. "
+    "Keep replies concise (2 short paragraphs). "
+    "At the end, add: [IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas, cinematic lighting]"
 )
 
 # Function to Process Query
@@ -89,14 +98,14 @@ def process_query(prompt_text):
     with st.chat_message("assistant"):
         with st.spinner("गुरु जी चिंतन कर रहे हैं..."):
             try:
-                # 1. Generate text answer from Gemini
+                # 1. Generate text from Gemini
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
-                    contents=[system_instruction, f"Seeker's question: {prompt_text}"]
+                    contents=[system_instruction, f"Question: {prompt_text}"]
                 )
                 raw_text = response.text or ""
-                
-                # 2. Extract image prompt
+
+                # 2. Extract visual prompt
                 image_url = None
                 if "[IMAGE_PROMPT:" in raw_text:
                     parts = raw_text.split("[IMAGE_PROMPT:")
@@ -107,18 +116,15 @@ def process_query(prompt_text):
                 else:
                     reply_text = raw_text.strip()
 
+                # Display Text
                 st.markdown(reply_text)
 
-                # 3. Audio generation (isolated inside try-catch)
-                audio_bytes = None
-                try:
-                    audio_bytes = get_brian_voice(reply_text)
-                    if audio_bytes:
-                        st.audio(audio_bytes, format="audio/mp3")
-                except Exception:
-                    pass
+                # 3. Audio generation
+                audio_bytes = get_brian_voice(reply_text)
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
 
-                # 4. Show Image
+                # 4. Display Image
                 if image_url:
                     st.image(image_url, use_container_width=True)
 
@@ -132,7 +138,7 @@ def process_query(prompt_text):
             except Exception as e:
                 st.error(f"त्रुटि: {e}")
 
-# Display Past Chat History
+# Display Past History
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -141,18 +147,18 @@ for message in st.session_state.messages:
         if message.get("image_url"):
             st.image(message["image_url"], use_container_width=True)
 
-# Quick Prompt Buttons
+# Quick Prompts
 st.write("*त्वरित प्रश्न चुनें:*")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🧘 मानसिक शांति"):
-        process_query("मुझे मानसिक अशांति और तनाव महसूस हो रहा है, क्या करूँ?")
+        process_query("मुझे मानसिक अशांति महसूस हो रही है, क्या करूँ?")
 with col2:
     if st.button("🎯 एकाग्रता"):
         process_query("काम और पढ़ाई में मन एकाग्र कैसे करें?")
 with col3:
     if st.button("⚖️ कर्म का मर्म"):
-        process_query("कर्म और उसके फल को सही तरह कैसे समझें?")
+        process_query("कर्म और उसके फल का सही मर्म क्या है?")
 
 # Chat Text Input
 user_typed_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
@@ -170,10 +176,10 @@ if audio_mic is not None:
         )
         transcription_response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[audio_part, "Listen to this audio and write down exactly what the speaker said in Hindi text. Return ONLY the transcribed text, nothing else."]
+            contents=[audio_part, "Transcribe this spoken audio into text. Return ONLY the transcribed text."]
         )
         voice_query = transcription_response.text.strip() if transcription_response.text else ""
         if voice_query:
             process_query(voice_query)
     except Exception as e:
-        st.error(f"माइक से आवाज़ समझने में समस्या: {e}")
+        st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e}")
