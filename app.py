@@ -26,13 +26,20 @@ except Exception as e:
     st.error(f"Gemini API सेटअप त्रुटि: {e}")
     st.stop()
 
-# Active Models Fallback Function
+# Helper function with active models fallback
 def generate_gemini_response(contents):
     models_to_try = ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
     last_err = None
     for m in models_to_try:
         try:
-            res = client.models.generate_content(model=m, contents=contents)
+            res = client.models.generate_content(
+                model=m,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.6,
+                    top_p=0.9
+                )
+            )
             if res and res.text:
                 return res.text
         except Exception as err:
@@ -45,8 +52,8 @@ async def create_guru_audio(text, output_file="guru_voice.mp3"):
     communicate = edge_tts.Communicate(
         text=text,
         voice="hi-IN-MadhurNeural",
-        rate="-5%",
-        pitch="-8Hz"
+        rate="-4%",
+        pitch="-7Hz"
     )
     await communicate.save(output_file)
 
@@ -64,28 +71,28 @@ def get_clean_image_url(prompt):
     clean_desc = urllib.parse.quote(prompt.strip())
     return f"https://image.pollinations.ai/prompt/{clean_desc}?width=1024&height=576&seed=42&nologo=true"
 
-# Session State
+# Session State for History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Sidebar
 with st.sidebar:
     st.header("🪔 अपना गुरु जी")
-    st.write("शांत, गंभीर और असीमित निःशुल्क ऋषि वाणी।")
+    st.write("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल।")
     if st.button("नई बातचीत शुरू करें (Clear Chat)"):
         st.session_state.messages = []
         st.rerun()
 
-# System Instruction
+# Classic Original Vedic & Psychological Prompt
 system_instruction = (
-    "आप 'अपना गुरु जी' हैं—एक अत्यंत प्रबुद्ध, शांत, गंभीर और स्नेही वैदिक आचार्य। "
-    "यूज़र के प्रश्नों का उत्तर संक्षेप में नहीं, बल्कि बहुत विस्तार और गहराई से दें (3 से 4 स्पष्ट अनुच्छेद)।\n\n"
-    "निर्देश:\n"
-    "1. श्रीमद्भगवद्गीता के सिद्धांत, उपनिषदों की सीख और आधुनिक जीवन का तालमेल रखें।\n"
-    "2. जीवन के व्यावहारिक उदाहरण दें ताकि मार्गदर्शन स्पष्ट और प्रेरणादायक हो।\n"
-    "3. भाषा अत्यंत शुद्ध, सम्मानजनक और शांत हिंदी हो।\n"
-    "4. उत्तर के अंत में यह टैग अनिवार्य रूप से जोड़ें: "
-    "[IMAGE_PROMPT: hyperrealistic cinematic Indian Vedic sage meditating in Himalayas near sacred holy fire, golden hour spiritual aura, 8k]"
+    "You are 'Apna Guru Ji', an authentic Vedic mentor and spiritual guide. "
+    "Your guiding philosophy is: 'उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल'.\n\n"
+    "Guidelines:\n"
+    "1. Blend the timeless insights of the Bhagavad Gita and Upanishads with modern psychological clarity.\n"
+    "2. Reply in graceful, soothing, respectful, and dignified Hindi (शुद्ध और शांत हिंदी).\n"
+    "3. Keep the guidance balanced, concise, and impactful (2-3 well-formed paragraphs), offering direct solace and practical action.\n"
+    "4. At the very end, append this exact image tag on a new line:\n"
+    "[IMAGE_PROMPT: serene Indian Vedic sage meditating peacefully in the Himalayas during a golden sunrise, sacred fire, hyperrealistic, cinematic 8k]"
 )
 
 # Process User Query
@@ -98,7 +105,7 @@ def process_query(prompt_text):
         st.markdown(prompt_text)
 
     with st.chat_message("assistant"):
-        with st.spinner("गुरु जी गहराई से चिंतन कर रहे हैं..."):
+        with st.spinner("गुरु जी चिंतन कर रहे हैं..."):
             try:
                 raw_text = generate_gemini_response([system_instruction, f"प्रश्न: {prompt_text}"])
 
@@ -146,13 +153,13 @@ st.write("*त्वरित प्रश्न चुनें:*")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🧘 मानसिक शांति"):
-        process_query("मुझे मानसिक अशांति महसूस हो रही है, मन को शांत करने का गहरा मार्ग बताएं।")
+        process_query("मुझे मानसिक अशांति महसूस हो रही है, क्या करूँ?")
 with col2:
     if st.button("🎯 एकाग्रता"):
-        process_query("काम और अध्ययन में मन एकाग्र करने के व्यावहारिक सूत्र क्या हैं?")
+        process_query("काम और पढ़ाई में मन एकाग्र कैसे करें?")
 with col3:
     if st.button("⚖️ कर्म का मर्म"):
-        process_query("कर्म और निष्काम कर्म योग का वास्तविक मर्म क्या है?")
+        process_query("कर्म और उसके फल का सही मर्म क्या है?")
 
 # Inputs
 user_typed_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
@@ -167,7 +174,7 @@ if audio_mic is not None:
             data=raw_audio,
             mime_type="audio/wav"
         )
-        transcription_text = generate_gemini_response([audio_part, "Transcribe this spoken audio into Hindi text. Return ONLY the transcribed text."])
+        transcription_text = generate_gemini_response([audio_part, "Transcribe this spoken audio into Hindi text accurately. Return ONLY the transcribed text."])
         voice_query = transcription_text.strip() if transcription_text else ""
         if voice_query:
             process_query(voice_query)
