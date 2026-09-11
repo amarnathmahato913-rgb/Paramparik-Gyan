@@ -26,9 +26,9 @@ except Exception as e:
     st.error(f"Gemini API सेटअप त्रुटि: {e}")
     st.stop()
 
-# Helper function to generate content with fallback on 503
+# Helper function with currently active 2026 models
 def generate_gemini_response(contents):
-    models_to_try = ["gemini-2.5-flash", "gemini-2.5-pro"]
+    models_to_try = ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
     last_err = None
     for m in models_to_try:
         try:
@@ -40,7 +40,7 @@ def generate_gemini_response(contents):
             continue
     raise last_err
 
-# ElevenLabs Brian Voice Generator (Long Audio Support)
+# ElevenLabs Brian Voice Generator (1.5 से 2 मिनट का विस्तृत ऑडियो)
 def get_brian_voice(text):
     raw_key = st.secrets.get("ELEVENLABS_API_KEY", None)
     if not raw_key:
@@ -56,8 +56,8 @@ def get_brian_voice(text):
         "xi-api-key": clean_key,
     }
 
-    # Increased character limit for longer ~1.5 to 2 minute audio
-    clean_text = text.replace("*", "").replace("#", "")[:1600]
+    # बड़ा ऑडियो बनाने के लिए 1500 कैरेक्टर सीमा
+    clean_text = text.replace("*", "").replace("#", "")[:1500]
 
     payload = {
         "text": clean_text,
@@ -77,7 +77,7 @@ def get_brian_voice(text):
     except Exception:
         return None
 
-# Session State for History
+# Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -92,7 +92,7 @@ with st.sidebar:
 # Comprehensive Guidance System Instruction
 system_instruction = (
     "आप 'अपना गुरु जी' हैं—एक अत्यंत प्रबुद्ध, शांत, गंभीर और स्नेही वैदिक आचार्य। "
-    "यूज़र के प्रश्नों का उत्तर संक्षेप में नहीं, बल्कि बहुत विस्तार और गहराई से दें (कम से कम 3 से 4 विस्तृत अनुच्छेद)।\n\n"
+    "यूज़र के प्रश्नों का उत्तर संक्षिप्त नहीं, बल्कि बहुत विस्तार और गहराई से दें (कम से कम 3 से 4 विस्तृत अनुच्छेद)।\n\n"
     "निर्देश:\n"
     "1. उत्तर में श्रीमद्भगवद्गीता के सिद्धांत, उपनिषदों की सीख और आधुनिक जीवन में उसके व्यावहारिक उपयोग को स्पष्ट करें।\n"
     "2. जीवन के वास्तविक उदाहरण दें और मार्गदर्शन ऐसा हो जो मन को शांत और स्पष्ट दृष्टि दे।\n"
@@ -113,10 +113,8 @@ def process_query(prompt_text):
     with st.chat_message("assistant"):
         with st.spinner("गुरु जी गहराई से चिंतन कर रहे हैं..."):
             try:
-                # 1. Text Generation with Automatic Retry/Fallback
                 raw_text = generate_gemini_response([system_instruction, f"प्रश्न: {prompt_text}"])
 
-                # 2. Visual Prompt Extraction
                 image_url = None
                 if "[IMAGE_PROMPT:" in raw_text:
                     parts = raw_text.split("[IMAGE_PROMPT:")
@@ -129,12 +127,12 @@ def process_query(prompt_text):
 
                 st.markdown(reply_text)
 
-                # 3. Longer Brian Voice Generation
+                # Audio Generation
                 audio_bytes = get_brian_voice(reply_text)
                 if audio_bytes:
                     st.audio(audio_bytes, format="audio/mp3")
 
-                # 4. Image Display
+                # Image Generation
                 if image_url:
                     st.image(image_url, use_container_width=True)
 
