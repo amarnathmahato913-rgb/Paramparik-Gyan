@@ -62,7 +62,6 @@ def get_free_guru_voice(text):
 # Clean No-Logo Image Generator
 def get_clean_image_url(prompt):
     clean_desc = urllib.parse.quote(prompt.strip())
-    # nologo=true ensures no watermark/logo appears on the generated image
     return f"https://image.pollinations.ai/prompt/{clean_desc}?width=1024&height=576&seed=42&nologo=true"
 
 # Session State
@@ -173,4 +172,4 @@ if audio_mic is not None:
         if voice_query:
             process_query(voice_query)
     except Exception as e:
-        st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e}"
+        st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e}")
