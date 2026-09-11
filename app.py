@@ -9,7 +9,7 @@ import re
 st.set_page_config(page_title="Apna Guru Ji", page_icon="🪔", layout="centered")
 
 st.title("🪔 अपना गुरु जी (Apna Guru Ji)")
-st.caption("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल")
+st.caption("सकल धर्मग्रंथों का शाश्वत विवेक और आधुनिक जीवन का व्यावहारिक तालमेल")
 
 # Safe Key Cleaning Function
 def clean_ascii_key(raw_val):
@@ -78,21 +78,28 @@ if "messages" not in st.session_state:
 # Sidebar
 with st.sidebar:
     st.header("🪔 अपना गुरु जी")
-    st.write("उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल।")
+    st.write("सकल धर्मग्रंथों (गीता, उपनिषद, सूफ़ी, बाइबिल, गुरबाणी, बौद्ध) का साझा ज्ञान।")
     if st.button("नई बातचीत शुरू करें (Clear Chat)"):
         st.session_state.messages = []
         st.rerun()
 
-# Classic Original Vedic & Psychological Prompt
+# Multi-Faith Heading-Wise System Instruction
 system_instruction = (
-    "You are 'Apna Guru Ji', an authentic Vedic mentor and spiritual guide. "
-    "Your guiding philosophy is: 'उपनिषदों का विवेक, गीता का दर्शन और आधुनिक मनोविज्ञान का व्यावहारिक तालमेल'.\n\n"
-    "Guidelines:\n"
-    "1. Blend the timeless insights of the Bhagavad Gita and Upanishads with modern psychological clarity.\n"
-    "2. Reply in graceful, soothing, respectful, and dignified Hindi (शुद्ध और शांत हिंदी).\n"
-    "3. Keep the guidance balanced, concise, and impactful (2-3 well-formed paragraphs), offering direct solace and practical action.\n"
-    "4. At the very end, append this exact image tag on a new line:\n"
-    "[IMAGE_PROMPT: serene Indian Vedic sage meditating peacefully in the Himalayas during a golden sunrise, sacred fire, hyperrealistic, cinematic 8k]"
+    "आप 'अपना गुरु जी' हैं—एक अत्यंत प्रबुद्ध, तटस्थ और स्नेही आध्यात्मिक मार्गदर्शक। "
+    "आपका उद्देश्य संसार के सभी प्रमुख धर्मग्रंथों के मूल सत्य को मिलाकर जिज्ञासु का मार्गदर्शन करना है।\n\n"
+    "अनिवार्य निर्देश:\n"
+    "प्रत्येक उत्तर को स्पष्ट रूप से निम्नलिखित 4 हेडिंग्स में बाँटकर लिखें:\n\n"
+    "*1. आत्मिक दृष्टि (मूल सार):*\n"
+    "जिज्ञासु की मनःस्थिति को समझें और 2-3 पंक्तियों में सांत्वना व दृष्टिकोण दें।\n\n"
+    "*2. सनातन विवेक (गीता व उपनिषद):*\n"
+    "गीता/उपनिषद का दार्शनिक सूत्र या श्लोक का अर्थ समझाएँ।\n\n"
+    "*3. विश्व धर्मों का साझा प्रकाश (सूफी, बाइबिल, गुरबाणी व बौद्ध दर्शन):*\n"
+    "अन्य धर्मग्रंथों (जैसे कुरान/सूफीवाद, ईसा मसीह के उपदेश, श्री गुरु ग्रंथ साहिब या बुद्ध के धम्मपद) से मिलती-जुलती अमूल्य सीख प्रस्तुत करें ताकि सिद्ध हो सके कि सत्य एक है।\n\n"
+    "*4. दैनिक जीवन में व्यावहारिक समाधान:*\n"
+    "आधुनिक जीवन में तुरंत अपनाने योग्य 2-3 ठोस कदम बुलेट पॉइंट्स में लिखें।\n\n"
+    "भाषा अत्यंत गरिमामयी, शुद्ध, सौम्य और शांत हिंदी हो।\n"
+    "उत्तर के अंत में यह टैग जोड़ें:\n"
+    "[IMAGE_PROMPT: peaceful enlightened multi faith spiritual teacher radiating golden light, sacred texts, mountain sanctuary, cinematic ultra realistic, 8k]"
 )
 
 # Process User Query
@@ -105,9 +112,9 @@ def process_query(prompt_text):
         st.markdown(prompt_text)
 
     with st.chat_message("assistant"):
-        with st.spinner("गुरु जी चिंतन कर रहे हैं..."):
+        with st.spinner("गुरु जी सभी धर्मग्रंथों के मर्म का मंथन कर रहे हैं..."):
             try:
-                raw_text = generate_gemini_response([system_instruction, f"प्रश्न: {prompt_text}"])
+                raw_text = generate_gemini_response([system_instruction, f"जिज्ञासु का प्रश्न: {prompt_text}"])
 
                 image_url = None
                 if "[IMAGE_PROMPT:" in raw_text:
@@ -153,13 +160,13 @@ st.write("*त्वरित प्रश्न चुनें:*")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🧘 मानसिक शांति"):
-        process_query("मुझे मानसिक अशांति महसूस हो रही है, क्या करूँ?")
+        process_query("मुझे अशांति और तनाव से मुक्ति पाने का मार्ग सभी धर्मों की दृष्टि से समझाएं।")
 with col2:
-    if st.button("🎯 एकाग्रता"):
-        process_query("काम और पढ़ाई में मन एकाग्र कैसे करें?")
+    if st.button("🎯 एकाग्रता व उद्देश्य"):
+        process_query("जीवन का उद्देश्य और कर्म में मन एकाग्र करने का मर्म क्या है?")
 with col3:
-    if st.button("⚖️ कर्म का मर्म"):
-        process_query("कर्म और उसके फल का सही मर्म क्या है?")
+    if st.button("⚖️ क्षमा और प्रेम"):
+        process_query("क्रोध पर विजय, क्षमा और निःस्वार्थ प्रेम का महत्व क्या है?")
 
 # Inputs
 user_typed_query = st.chat_input("गुरु जी से अपनी दुविधा साझा करें...")
