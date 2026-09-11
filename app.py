@@ -2,8 +2,8 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import urllib.parse
-import requests
-import json
+import edge_tts
+import asyncio
 import re
 
 st.set_page_config(page_title="Apna Guru Ji", page_icon="🪔", layout="centered")
@@ -26,7 +26,7 @@ except Exception as e:
     st.error(f"Gemini API सेटअप त्रुटि: {e}")
     st.stop()
 
-# Helper function with currently active 2026 models
+# Helper function with active models fallback
 def generate_gemini_response(contents):
     models_to_try = ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
     last_err = None
@@ -40,51 +40,35 @@ def generate_gemini_response(contents):
             continue
     raise last_err
 
-# ElevenLabs Brian Voice Generator (1.5 से 2 मिनट का विस्तृत ऑडियो)
-def get_brian_voice(text):
-    raw_key = st.secrets.get("ELEVENLABS_API_KEY", None)
-    if not raw_key:
-        return None
-    
-    clean_key = clean_ascii_key(raw_key)
-    voice_id = "nPczCjzI2devNBz1zQrb"  # Brian Voice ID
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+# 100% Free, Unlimited Deep Sage Voice (No Credit Limit)
+async def create_guru_audio(text, output_file="guru_voice.mp3"):
+    # Madhur Neural tuned to sound deep, resonant, and calm like a sage
+    communicate = edge_tts.Communicate(
+        text=text,
+        voice="hi-IN-MadhurNeural",
+        rate="-6%",   # Pacing adjusted for clarity
+        pitch="-8Hz"  # Deep bass tone like Brian
+    )
+    await communicate.save(output_file)
 
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": clean_key,
-    }
-
-    # बड़ा ऑडियो बनाने के लिए 1500 कैरेक्टर सीमा
-    clean_text = text.replace("*", "").replace("#", "")[:1500]
-
-    payload = {
-        "text": clean_text,
-        "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.85
-        }
-    }
-
+def get_free_guru_voice(text):
     try:
-        req_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        response = requests.post(url, data=req_body, headers=headers, timeout=60)
-        if response.status_code == 200:
-            return response.content
-        return None
+        # Full length text without artificial cutoffs
+        clean_text = text.replace("*", "").replace("#", "").strip()
+        asyncio.run(create_guru_audio(clean_text))
+        with open("guru_voice.mp3", "rb") as f:
+            return f.read()
     except Exception:
         return None
 
-# Session State
+# Session State for History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Sidebar
 with st.sidebar:
     st.header("🪔 अपना गुरु जी")
-    st.write("शांत, गंभीर और प्रामाणिक दार्शनिक वाणी (Brian Voice)।")
+    st.write("शांत, गंभीर और असीमित निःशुल्क ऋषि वाणी।")
     if st.button("नई बातचीत शुरू करें (Clear Chat)"):
         st.session_state.messages = []
         st.rerun()
@@ -92,16 +76,16 @@ with st.sidebar:
 # Comprehensive Guidance System Instruction
 system_instruction = (
     "आप 'अपना गुरु जी' हैं—एक अत्यंत प्रबुद्ध, शांत, गंभीर और स्नेही वैदिक आचार्य। "
-    "यूज़र के प्रश्नों का उत्तर संक्षिप्त नहीं, बल्कि बहुत विस्तार और गहराई से दें (कम से कम 3 से 4 विस्तृत अनुच्छेद)।\n\n"
+    "यूज़र के प्रश्नों का उत्तर संक्षेप में नहीं, बल्कि बहुत विस्तार और गहराई से दें (3 से 4 स्पष्ट अनुच्छेद)।\n\n"
     "निर्देश:\n"
-    "1. उत्तर में श्रीमद्भगवद्गीता के सिद्धांत, उपनिषदों की सीख और आधुनिक जीवन में उसके व्यावहारिक उपयोग को स्पष्ट करें।\n"
-    "2. जीवन के वास्तविक उदाहरण दें और मार्गदर्शन ऐसा हो जो मन को शांत और स्पष्ट दृष्टि दे।\n"
-    "3. भाषा अत्यंत शुद्ध, सम्मानजनक, गंभीर और प्रेरणादायी हिंदी हो।\n"
-    "4. उत्तर के अंत में यह इमेज टैग अवश्य जोड़ें: "
-    "[IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas near sacred fire, golden sunrise, cinematic 8k ultra realistic]"
+    "1. उत्तर में श्रीमद्भगवद्गीता के सिद्धांत, उपनिषदों की सीख और आधुनिक मनोविज्ञान का तालमेल रखें।\n"
+    "2. जीवन के व्यावहारिक उदाहरण दें ताकि मार्गदर्शन स्पष्ट और प्रेरणादायक हो।\n"
+    "3. भाषा अत्यंत शुद्ध, सम्मानजनक और शांत हिंदी हो।\n"
+    "4. उत्तर के अंत में यह टैग जोड़ें: "
+    "[IMAGE_PROMPT: serene Indian Vedic sage meditating in Himalayas near sacred fire, golden sunrise, cinematic ultra realistic]"
 )
 
-# Process Query
+# Process User Query
 def process_query(prompt_text):
     if not prompt_text:
         return
@@ -127,8 +111,8 @@ def process_query(prompt_text):
 
                 st.markdown(reply_text)
 
-                # Audio Generation
-                audio_bytes = get_brian_voice(reply_text)
+                # Free Full-Length Voice Generation
+                audio_bytes = get_free_guru_voice(reply_text)
                 if audio_bytes:
                     st.audio(audio_bytes, format="audio/mp3")
 
