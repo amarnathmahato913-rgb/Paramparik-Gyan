@@ -28,7 +28,7 @@ except Exception as e:
 
 # Helper function with active models fallback
 def generate_gemini_response(contents):
-    models_to_try = ["gemini-2.5-flash", "gemini-3.1-pro-preview"]
+    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
     last_err = None
     for m in models_to_try:
         try:
@@ -45,7 +45,7 @@ def generate_gemini_response(contents):
         except Exception as err:
             last_err = err
             continue
-    raise last_err
+    return "क्षमा करें, सर्वर व्यस्त है। कृपया 1 मिनट बाद पुनः प्रयास करें।"
 
 # 100% Free, Unlimited Deep Sage Voice
 async def create_guru_audio(text, output_file="guru_voice.mp3"):
@@ -149,7 +149,7 @@ for message in st.session_state.messages:
             st.image(message["image_url"], use_container_width=True)
 
 # Quick Prompts
-st.write("*त्वरित प्रश्न चुनें:*")
+st.write("**त्वरित प्रश्न चुनें:**")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🧘 मानसिक शांति"):
@@ -174,9 +174,12 @@ if audio_mic is not None:
             data=raw_audio,
             mime_type="audio/wav"
         )
-        transcription_text = generate_gemini_response([audio_part, "Transcribe this spoken audio into Hindi text accurately. Return ONLY the transcribed text."])
+        transcription_text = generate_gemini_response([
+            audio_part, 
+            "Transcribe this spoken audio into Hindi text accurately. Return ONLY the transcribed text."
+        ])
         voice_query = transcription_text.strip() if transcription_text else ""
-        if voice_query:
+        if voice_query and not voice_query.startswith("क्षमा करें"):
             process_query(voice_query)
     except Exception as e:
         st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e}")
