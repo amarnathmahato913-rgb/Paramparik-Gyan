@@ -186,4 +186,4 @@ if audio_mic is not None:
         if voice_query:
             process_query(voice_query)
     except Exception as e:
-        st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e}"
+            st.error(f"माइक ट्रांसक्रिप्शन में त्रुटि: {e})
