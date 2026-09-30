@@ -28,7 +28,7 @@ except Exception as e:
 
 # Helper function with active models fallback
 def generate_gemini_response(contents):
-    models_to_try = ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
+    models_to_try = ["gemini-2.5-flash", "gemini-3.1-pro-preview"]
     last_err = None
     for m in models_to_try:
         try:
